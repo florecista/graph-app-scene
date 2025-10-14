@@ -32,7 +32,8 @@ class Ui_MainWindow(object):
         self.buttonGraphLayoutCircle.setObjectName(u"buttonGraphLayoutCircle")
         self.buttonGraphLayoutCircle.setMinimumSize(QSize(30, 30))
         self.buttonGraphLayoutCircle.setMaximumSize(QSize(30, 30))
-        icon_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + r"\images\layout-circular.png"
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        icon_path = os.path.join(base_dir, "images", "layout-circular.png")
         icon = QIcon(icon_path)
         self.buttonGraphLayoutCircle.setIcon(icon)
         self.buttonGraphLayoutCircle.setIconSize(QSize(24, 24))
@@ -43,7 +44,7 @@ class Ui_MainWindow(object):
         self.buttonGraphLayoutRadial.setObjectName(u"buttonGraphLayoutRadial")
         self.buttonGraphLayoutRadial.setMinimumSize(QSize(30, 30))
         self.buttonGraphLayoutRadial.setMaximumSize(QSize(30, 30))
-        icon_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + r"\images\layout-radial.png"
+        icon_path = os.path.join(base_dir, "images", "layout-radial.png")
         icon1 = QIcon(icon_path)
         self.buttonGraphLayoutRadial.setIcon(icon1)
         self.buttonGraphLayoutRadial.setIconSize(QSize(24, 24))
@@ -54,7 +55,7 @@ class Ui_MainWindow(object):
         self.buttonGraphLayoutTree.setObjectName(u"buttonGraphLayoutTree")
         self.buttonGraphLayoutTree.setMinimumSize(QSize(30, 30))
         self.buttonGraphLayoutTree.setMaximumSize(QSize(30, 30))
-        icon_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + r"\images\layout-tree.png"
+        icon_path = os.path.join(base_dir, "images", "layout-tree.png")
         icon2 = QIcon(icon_path)
         self.buttonGraphLayoutTree.setIcon(icon2)
         self.buttonGraphLayoutTree.setIconSize(QSize(24, 24))
@@ -63,7 +64,7 @@ class Ui_MainWindow(object):
 
         self.buttonGraphLayoutSubGraph = QToolButton(self.tabGraph)
         self.buttonGraphLayoutSubGraph.setObjectName(u"buttonGraphLayoutSubGraph")
-        icon_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + r"\images\layout-grid.png"
+        icon_path = os.path.join(base_dir, "images", "layout-grid.png")
         icon3 = QIcon(icon_path)
         icon3.addFile(u":/images/layout-grid.png", QSize(), QIcon.Normal, QIcon.Off)
         self.buttonGraphLayoutSubGraph.setIcon(icon3)
@@ -81,7 +82,7 @@ class Ui_MainWindow(object):
         self.buttonGraphFit.setObjectName(u"buttonGraphFit")
         self.buttonGraphFit.setMinimumSize(QSize(30, 30))
         self.buttonGraphFit.setMaximumSize(QSize(30, 30))
-        icon_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + r"\images\layout-fit.png"
+        icon_path = os.path.join(base_dir, "images", "layout-fit.png")
         icon4 = QIcon(icon_path)
         self.buttonGraphFit.setIcon(icon4)
         self.buttonGraphFit.setIconSize(QSize(24, 24))
