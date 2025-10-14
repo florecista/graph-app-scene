@@ -15,6 +15,8 @@ class Ui_MainWindow(object):
         if not MainWindow.objectName():
             MainWindow.setObjectName(u"MainWindow")
 
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
         self.centralwidget = QWidget(MainWindow)
         self.centralwidget.setObjectName(u"centralwidget")
         self.verticalLayout_2 = QVBoxLayout(self.centralwidget)
@@ -32,7 +34,6 @@ class Ui_MainWindow(object):
         self.buttonGraphLayoutCircle.setObjectName(u"buttonGraphLayoutCircle")
         self.buttonGraphLayoutCircle.setMinimumSize(QSize(30, 30))
         self.buttonGraphLayoutCircle.setMaximumSize(QSize(30, 30))
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         icon_path = os.path.join(base_dir, "images", "layout-circular.png")
         icon = QIcon(icon_path)
         self.buttonGraphLayoutCircle.setIcon(icon)
@@ -467,8 +468,8 @@ class Ui_MainWindow(object):
         self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
         self.edgeSuspected = QLabel(self.dockWidgetContents_4)
         self.edgeSuspected.setObjectName(u"edgeSuspected")
-        icon_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + r"\images\edge-suspected.png"
-        # self.edgeSuspected.setPixmap(QPixmap(u":/images/edge-suspected.png"))
+        icon_path = os.path.join(base_dir, "images", "edge-suspected.png")
+
         self.edgeSuspected.setPixmap(QPixmap(icon_path))
         self.edgeSuspected.setAlignment(Qt.AlignCenter)
 
@@ -476,8 +477,7 @@ class Ui_MainWindow(object):
 
         self.edgeConfirmed = QLabel(self.dockWidgetContents_4)
         self.edgeConfirmed.setObjectName(u"edgeConfirmed")
-        icon_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + r"\images\edge-confirmed.png"
-        # self.edgeConfirmed.setPixmap(QPixmap(u":/images/edge-confirmed.png"))
+        icon_path = os.path.join(base_dir, "images", "edge-confirmed.png")
         self.edgeConfirmed.setPixmap(QPixmap(icon_path))
         self.edgeConfirmed.setAlignment(Qt.AlignCenter)
 
