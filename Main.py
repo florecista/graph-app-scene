@@ -385,6 +385,7 @@ class MainWindow(QMainWindow):
         base_dir = os.path.dirname(os.path.abspath(__file__))
         icon_path = os.path.join(base_dir, "images", "app_icon.ico")
         self.setWindowIcon(QIcon(icon_path))
+        self.setWindowTitle("My Simple Network Graph Builder")
 
         self.license_file = ""
 
