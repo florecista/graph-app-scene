@@ -337,7 +337,7 @@ class GraphTab(QMainWindow):
             self.ui.statusbar.repaint()
 
             # Clear the current graphScene before importing new data
-            self.ui.graphScene.clear()
+            self.ui.graphScene.clear_scene_and_references()
 
             # Determine which function to call based on file extension
             if file_name.endswith(".graphml"):
@@ -495,6 +495,10 @@ class MainWindow(QMainWindow):
         # action.triggered.connect(self.show_about_dialog)
 
     def exit(self):
+        # 🧹 Cleanup before exiting
+        if self.graph_view and self.graph_view.ui.graphScene:
+            self.graph_view.ui.graphScene.clear_scene_and_references()
+
         QApplication.closeAllWindows()
 
     # def show_about_dialog(self) -> None:
