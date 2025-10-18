@@ -3,7 +3,7 @@ import sys
 from datetime import datetime
 
 from PyQt5.QtCore import QTranslator, QDir, QPoint, QMimeData, QRect, QFileInfo
-from PyQt5.QtGui import QDrag
+from PyQt5.QtGui import QDrag, QIcon
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QTabWidget, QMenuBar, QActionGroup, QDialog, QLabel, \
     QTableView, QAbstractItemView, QHeaderView, QVBoxLayout, QPushButton, QColorDialog, QFileDialog
 
@@ -381,7 +381,13 @@ class MainWindow(QMainWindow):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
 
+        # Set application icon
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        icon_path = os.path.join(base_dir, "images", "app_icon.ico")
+        self.setWindowIcon(QIcon(icon_path))
+
         self.license_file = ""
+
         self.translator = None
 
         self.tabWidget = QTabWidget()
