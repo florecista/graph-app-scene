@@ -2,6 +2,7 @@ import io
 import os
 
 from PyQt5 import QtGui
+from PyQt5.QtGui import QKeyEvent
 
 import constants
 from managers import js_manager
@@ -117,16 +118,24 @@ class GraphScene(QGraphicsScene):
 
     startItem = newConnection = None
 
+#    def controlPointAt(self, pos):
+#        mask = QtGui.QPainterPath()
+#        mask.setFillRule(Qt.WindingFill)
+#        for item in self.items(pos):
+#            if mask.contains(pos):
+#                return
+#            if isinstance(item, GraphItem):
+#                return item
+#            if not isinstance(item, GraphEdge):
+#                mask.addPath(item.shape().translated(item.scenePos()))
+
+
     def controlPointAt(self, pos):
-        mask = QtGui.QPainterPath()
-        mask.setFillRule(Qt.WindingFill)
         for item in self.items(pos):
-            if mask.contains(pos):
-                return
             if isinstance(item, GraphItem):
                 return item
-            if not isinstance(item, GraphEdge):
-                mask.addPath(item.shape().translated(item.scenePos()))
+        return None
+
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton and event.modifiers() & Qt.ShiftModifier:
@@ -173,6 +182,20 @@ class GraphScene(QGraphicsScene):
 
         self.startItem = self.newConnection = None
         super().mouseReleaseEvent(event)
+
+    def keyPressEvent(self, event: QKeyEvent):
+        if event.key() == Qt.Key_Delete:
+            selected_items = self.selectedItems()
+            for item in selected_items:
+                if isinstance(item, GraphItem):
+                    self.delete_node(item)
+                elif isinstance(item, GraphEdge):
+                    self.remove_edge(item)
+
+            self.clearSelection()
+            self.update()
+        else:
+            super().keyPressEvent(event)
 
     def getCenterPos(self, item):
         """Helper method to get the center of the item"""
@@ -246,6 +269,30 @@ class GraphScene(QGraphicsScene):
 
             # 5. Update scene and UI
             self.update()
+
+    def remove_edge(self, edge: GraphEdge):
+        """Remove an edge and clean up references."""
+        try:
+            self.removeItem(edge)
+        except Exception:
+            pass
+
+        if edge in self._edge_items:
+            self._edge_items.remove(edge)
+
+        # Clean references from start and end nodes
+        if edge.start and hasattr(edge.start, "edges"):
+            if edge in edge.start.edges:
+                edge.start.edges.remove(edge)
+
+        if edge.end and hasattr(edge.end, "edges"):
+            if edge in edge.end.edges:
+                edge.end.edges.remove(edge)
+
+        try:
+            del edge
+        except:
+            pass
 
     def __del__(self):
         print("GraphScene is being deleted")
