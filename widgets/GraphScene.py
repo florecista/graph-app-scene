@@ -205,6 +205,48 @@ class GraphScene(QGraphicsScene):
         self.newConnection = None
         self.update()
 
+    def delete_node(self, node_item: GraphItem):
+            """Remove a node and its attached edges from the scene and internal state."""
+            # 1. Remove connected edges first
+            edges_to_remove = []
+            # Suppose GraphItem has e.g. node_item.edges (list of GraphEdge)
+            for edge in getattr(node_item, "edges", []):
+                try:
+                    self.removeItem(edge)
+                except Exception:
+                    pass
+                if edge in self._edge_items:
+                    self._edge_items.remove(edge)
+            # Optionally clear back-references
+            if hasattr(node_item, "edges"):
+                node_item.edges.clear()
+            
+            # 2. Remove the node item
+            try:
+                self.removeItem(node_item)
+            except Exception:
+                pass
+            if node_item in self._node_items:
+                self._node_items.remove(node_item)
+            
+            # 3. Break any references in node_item itself
+            # For example, if node_item had pointers to parent/child nodes or edges:
+            for attr in ("parent", "children", "lines", "edges"):
+                if hasattr(node_item, attr):
+                    try:
+                        setattr(node_item, attr, None)
+                    except:
+                        pass
+
+            # 4. Optionally delete it (or let GC reclaim)
+            try:
+                del node_item
+            except:
+                pass
+
+            # 5. Update scene and UI
+            self.update()
+
     def __del__(self):
         print("GraphScene is being deleted")
         """Destructor to ensure cleanup when the scene is deleted."""

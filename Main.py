@@ -307,21 +307,9 @@ class GraphTab(QMainWindow):
         self.ui.graphView.apply_settings(self)
 
     def __remove_selected(self):
-        # nodes = list(graphm.cur_G.nodes.data(False))
-        # for i in self.ui.graphView.selected_node_indexes:
-        #     graphm.G.remove_node(nodes[i])
-        #
-        # edges = list(graphm.cur_G.edges.data(False))
-        # for i in self.ui.graphView.edge_selected_indexes:
-        #     graphm.G.remove_edge(edges[i][0], edges[i][1])
-        #
-        # self.ui.graphView.selected_node_indexes = []
-        # self.ui.graphView.edge_selected_indexes = []
-        #
-        # self.ui.graphView.selected_node_names = None
-        # self.ui.graphView.selected_node_pressed_positions = None
-
-        self.__deselected()
+        selected_items = self.ui.graphView.get_selected_node_items()
+        for node_item in selected_items:
+            self.ui.graphScene.delete_node(node_item)
         self.apply_settings()
 
     def graphLayoutTreeClicked(self):
