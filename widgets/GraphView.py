@@ -5,6 +5,7 @@ from matplotlib import pyplot as plt
 # PyQt5 imports
 from PyQt5.QtCore import pyqtSignal, QRect, QPoint, QSize, Qt, QRectF
 from PyQt5.QtGui import QColor
+from PyQt5.QtGui import QWheelEvent
 from PyQt5.QtWidgets import QGraphicsView, QRubberBand
 
 # Local imports
@@ -35,6 +36,11 @@ class GraphView(QGraphicsView):
         super(GraphView, self).__init__(parent)
         self._center = None
 
+        # Zoom and Pan setup
+        #self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
+        #self.setResizeAnchor(QGraphicsView.AnchorUnderMouse)
+        #self.setDragMode(QGraphicsView.ScrollHandDrag)  # Enables middle-button panning
+
         self.rubberBand = QRubberBand(QRubberBand.Rectangle, self)
         self.setMouseTracking(True)
         self.origin = QPoint()
@@ -42,27 +48,30 @@ class GraphView(QGraphicsView):
 
     def mousePressEvent(self, event):
         self.origin = event.pos()
+        scene_pos = self.mapToScene(event.pos())
         is_touching_icon = False
         graphEdgePointOffset = 50
 
         for child in self.items():
             if isinstance(child, GraphItem):
-                childRect = QRect(
-                    int(child.x()), int(child.y()),
-                    int(child.boundingRect().width()) + graphEdgePointOffset,
-                    int(child.boundingRect().height())
+                # Convert bounding rect to scene space
+                child_scene_rect = child.mapToScene(child.boundingRect()).boundingRect()
+
+                # Optionally expand the rect slightly to increase clickable area
+                expanded_rect = child_scene_rect.adjusted(
+                    -graphEdgePointOffset / 2, 0, graphEdgePointOffset / 2, 0
                 )
-                positionOffset = QPoint(self.origin.x() - 32, self.origin.y())
-                if childRect.contains(positionOffset):
+
+                if expanded_rect.contains(scene_pos):
                     is_touching_icon = True
-                    self.nodes_selection_changed.emit({'selected_node': child})  # Emit only if icon is selected
-                    break  # No need to check further if node is selected
+                    self.nodes_selection_changed.emit({'selected_node': child})
+                    break
 
             elif isinstance(child, GraphEdge):
-                edgeRect = QRectF(child.line().p1(), child.line().p2()).normalized()
-                if edgeRect.contains(event.pos()):
-                    self.edges_selection_changed.emit({'selected_edge': child})  # Emit only if edge is selected
-                    break  # Stop further checks if edge is selected
+                edge_rect = QRectF(child.line().p1(), child.line().p2()).normalized()
+                if edge_rect.contains(scene_pos):
+                    self.edges_selection_changed.emit({'selected_edge': child})
+                    break
 
         if not is_touching_icon:
             self.rubberBand.setGeometry(QRect(self.origin, QSize()))
@@ -81,20 +90,73 @@ class GraphView(QGraphicsView):
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.LeftButton:
             self.changeRubberBand = False
+
             if self.rubberBand.isVisible():
                 self.rubberBand.hide()
-                selected = []
-                rect = self.rubberBand.geometry()
-                for child in self.items():
-                    if (isinstance(child, GraphItem)):
-                        childRect = QRect(int(child.x()), int(child.y()), int(child.boundingRect().width()), int(child.boundingRect().height()))
-                        if rect.intersects(childRect):
-                            child.setSelected(True)
-                            selected.append(child)
 
-                # print(str(len(selected)), 'nodes selected')
-        self.changeRubberBand = False
-        QGraphicsView.mouseReleaseEvent(self,event)
+                # Map the rubberband geometry from view to scene coordinates
+                view_rect = self.rubberBand.geometry()
+                scene_rect = QRectF(
+                    self.mapToScene(view_rect.topLeft()),
+                    self.mapToScene(view_rect.bottomRight())
+                )
+
+                selected_nodes = []
+                selected_edges = []
+
+                for child in self.items():
+                    if isinstance(child, GraphItem):
+                        # Get the node’s bounding rect in scene coordinates
+                        child_scene_rect = child.mapToScene(child.boundingRect()).boundingRect()
+
+                        if scene_rect.intersects(child_scene_rect):
+                            child.setSelected(True)
+                            selected_nodes.append(child)
+
+                    elif isinstance(child, GraphEdge):
+                        edge_rect = QRectF(child.line().p1(), child.line().p2()).normalized()
+                        if scene_rect.intersects(edge_rect):
+                            child.setSelected(True)
+                            selected_edges.append(child)
+
+                # Emit signals if needed
+                if selected_nodes:
+                    self.nodes_selection_changed.emit({'selected_nodes': selected_nodes})
+                if selected_edges:
+                    self.edges_selection_changed.emit({'selected_edges': selected_edges})
+
+        QGraphicsView.mouseReleaseEvent(self, event)
+
+    def wheelEvent(self, event: QWheelEvent):
+        zoom_in_factor = 1.25
+        zoom_out_factor = 1 / zoom_in_factor
+
+        # Save the scene position under mouse
+        old_pos = self.mapToScene(event.pos())
+
+        # Perform zoom
+        if event.angleDelta().y() > 0:
+            zoom_factor = zoom_in_factor
+        else:
+            zoom_factor = zoom_out_factor
+
+        self.scale(zoom_factor, zoom_factor)
+
+        # Get the new position and adjust scrollbars to keep the zoom at cursor
+        new_pos = self.mapToScene(event.pos())
+        delta = new_pos - old_pos
+        self.translate(delta.x(), delta.y())
+
+    def zoom_in(self):
+        self.scale(1.25, 1.25)
+
+    def zoom_out(self):
+        self.scale(0.8, 0.8)
+
+    def fit_view(self):
+        # Fit entire scene into view
+        self.fitInView(self.sceneRect(), Qt.KeepAspectRatio)
+
 
     def apply_settings(self, parent_window):
         nodes, edges = self._collect_graph_items()
@@ -288,3 +350,9 @@ class GraphView(QGraphicsView):
 
         file_utils.save_gexf(scene, filename)
 
+    def get_selected_node_items(self):
+        return [item for item in self.scene().selectedItems() if isinstance(item, GraphItem)]
+
+    def get_selected_edge_items(self):
+        """Return a list of selected GraphEdge items."""
+        return [item for item in self.scene().selectedItems() if isinstance(item, GraphEdge)]
