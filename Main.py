@@ -3,6 +3,7 @@ import sys
 from datetime import datetime
 
 from PyQt5.QtCore import QTranslator, QDir, QPoint, QMimeData, QRect, QFileInfo
+from PyQt5.QtCore import QSettings
 from PyQt5.QtGui import QDrag, QIcon
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QTabWidget, QMenuBar, QActionGroup, QDialog, QLabel, \
     QTableView, QAbstractItemView, QHeaderView, QVBoxLayout, QPushButton, QColorDialog, QFileDialog
@@ -77,6 +78,29 @@ class GraphTab(QMainWindow):
         self.import_path = ""
 
         self.graph_layout_has_changed = False
+
+    def load_recent_file(self, file_path: str):
+        if not os.path.exists(file_path):
+            return
+
+        self.import_path = str(QFileInfo(file_path).absolutePath())
+        self.ui.statusbar.showMessage(f"Opening {file_path}...")
+
+        self.ui.graphScene.clear_scene_and_references()
+
+        if file_path.endswith(".graphml"):
+            has_positions = self.ui.graphView.open_graphml(self.ui.graphScene, file_path)
+        elif file_path.endswith(".gexf"):
+            has_positions = self.ui.graphView.open_gexf(self.ui.graphScene, file_path)
+
+        if not has_positions:
+            self.ui.cboGraphConfiguration.setCurrentIndex(constants.GraphLayout.FruchtermanReingold)
+
+        self.apply_settings()
+        self.ui.statusbar.clearMessage()
+
+        # ✅ Add this line
+        self.window().add_recent_file(file_path)
 
     def __node_selection_changed(self, node):
         self.tableView.setModel(self.node_property_model)
@@ -342,21 +366,21 @@ class GraphTab(QMainWindow):
             self.ui.statusbar.showMessage("Importing data...")
             self.ui.statusbar.repaint()
 
-            # Clear the current graphScene before importing new data
             self.ui.graphScene.clear_scene_and_references()
 
-            # Determine which function to call based on file extension
             if file_name.endswith(".graphml"):
                 has_positions = self.ui.graphView.open_graphml(self.ui.graphScene, file_name)
             elif file_name.endswith(".gexf"):
                 has_positions = self.ui.graphView.open_gexf(self.ui.graphScene, file_name)
 
-            # If nodes do not have saved positions, use default layout
             if not has_positions:
                 self.ui.cboGraphConfiguration.setCurrentIndex(constants.GraphLayout.FruchtermanReingold)
 
             self.apply_settings()
             self.ui.statusbar.clearMessage()
+
+            # ✅ Add this line
+            self.window().add_recent_file(file_name)
 
     def save_graph(self) -> None:
         file_name = datetime.today().strftime("%Y-%m-%d") + "_Graph"
@@ -386,6 +410,8 @@ class GraphTab(QMainWindow):
 class MainWindow(QMainWindow):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+
+        self.settings = QSettings("MyCompany", "MyApp")
 
         # Set application icon
         base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -422,6 +448,14 @@ class MainWindow(QMainWindow):
 
         self.showMaximized()
 
+    def add_recent_file(self, path):
+        files = self.settings.value("recentFiles", [], type=list)
+        if path in files:
+            files.remove(path)
+        files.insert(0, path)
+        files = files[:5]
+        self.settings.setValue("recentFiles", files)
+
     def on_menu_file_about_to_show(self):
         self.menu_file_items.clear()
         action = self.menu_file_items.addAction("")
@@ -442,6 +476,16 @@ class MainWindow(QMainWindow):
         action = self.menu_file_items.addAction("&Export Image...")
         action.setText(self.tr("&Export Image..."))
         # action.triggered.connect(self.graph_view.export_image)
+
+        recent_files = self.settings.value("recentFiles", [], type=list)
+
+        if recent_files:
+            self.menu_file_items.addSeparator()
+            for path in recent_files:
+                if not os.path.exists(path):
+                    continue
+                action = self.menu_file_items.addAction(path)
+                action.triggered.connect(lambda checked, p=path: self.graph_view.load_recent_file(p))
 
         action = self.menu_file_items.addAction("&Exit")
         action.setText(self.tr("&Exit"))
