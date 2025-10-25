@@ -36,15 +36,14 @@ class GraphView(QGraphicsView):
         super(GraphView, self).__init__(parent)
         self._center = None
 
-        # Zoom and Pan setup
-        #self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
-        #self.setResizeAnchor(QGraphicsView.AnchorUnderMouse)
-        #self.setDragMode(QGraphicsView.ScrollHandDrag)  # Enables middle-button panning
-
         self.rubberBand = QRubberBand(QRubberBand.Rectangle, self)
         self.setMouseTracking(True)
         self.origin = QPoint()
         self.changeRubberBand = False
+
+        # Edge dragging state
+        self.edge_source_item = None
+        self.edge_preview = None
 
     def mousePressEvent(self, event):
         self.origin = event.pos()
@@ -52,16 +51,20 @@ class GraphView(QGraphicsView):
         is_touching_icon = False
         graphEdgePointOffset = 50
 
+        if event.modifiers() == Qt.ShiftModifier and event.button() == Qt.LeftButton:
+            item = self.itemAt(event.pos())
+            if isinstance(item, GraphItem):
+                self.edge_source_item = item
+                self.edge_preview = GraphEdge(source=item, target=scene_pos)
+                self.scene().addItem(self.edge_preview)
+                return
+
         for child in self.items():
             if isinstance(child, GraphItem):
-                # Convert bounding rect to scene space
                 child_scene_rect = child.mapToScene(child.boundingRect()).boundingRect()
-
-                # Optionally expand the rect slightly to increase clickable area
                 expanded_rect = child_scene_rect.adjusted(
                     -graphEdgePointOffset / 2, 0, graphEdgePointOffset / 2, 0
                 )
-
                 if expanded_rect.contains(scene_pos):
                     is_touching_icon = True
                     self.nodes_selection_changed.emit({'selected_node': child})
@@ -85,16 +88,29 @@ class GraphView(QGraphicsView):
         if self.changeRubberBand:
             self.rubberBand.setGeometry(QRect(self.origin, event.pos()).normalized())
             self.rect_changed.emit(self.rubberBand.geometry())
-        QGraphicsView.mouseMoveEvent(self, event)
+
+        if self.edge_preview:
+            self.edge_preview.setP2(self.mapToScene(event.pos()))
+            return
+
+        super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
+        if self.edge_preview and self.edge_source_item:
+            target_item = self.itemAt(event.pos())
+            if isinstance(target_item, GraphItem) and target_item != self.edge_source_item:
+                edge = GraphEdge(source=self.edge_source_item, target=target_item)
+                self.scene().addItem(edge)
+
+            self.scene().removeItem(self.edge_preview)
+            self.edge_preview = None
+            self.edge_source_item = None
+            return
+
         if event.button() == Qt.LeftButton:
             self.changeRubberBand = False
-
             if self.rubberBand.isVisible():
                 self.rubberBand.hide()
-
-                # Map the rubberband geometry from view to scene coordinates
                 view_rect = self.rubberBand.geometry()
                 scene_rect = QRectF(
                     self.mapToScene(view_rect.topLeft()),
@@ -106,9 +122,7 @@ class GraphView(QGraphicsView):
 
                 for child in self.items():
                     if isinstance(child, GraphItem):
-                        # Get the node’s bounding rect in scene coordinates
                         child_scene_rect = child.mapToScene(child.boundingRect()).boundingRect()
-
                         if scene_rect.intersects(child_scene_rect):
                             child.setSelected(True)
                             selected_nodes.append(child)
@@ -119,13 +133,12 @@ class GraphView(QGraphicsView):
                             child.setSelected(True)
                             selected_edges.append(child)
 
-                # Emit signals if needed
                 if selected_nodes:
                     self.nodes_selection_changed.emit({'selected_nodes': selected_nodes})
                 if selected_edges:
                     self.edges_selection_changed.emit({'selected_edges': selected_edges})
 
-        QGraphicsView.mouseReleaseEvent(self, event)
+        super().mouseReleaseEvent(event)
 
     def wheelEvent(self, event: QWheelEvent):
         zoom_in_factor = 1.25
