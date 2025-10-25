@@ -4,7 +4,6 @@ from PyQt5 import QtGui
 from PyQt5.QtCore import Qt, QRect, QPointF, QByteArray, QRectF, QPoint
 from PyQt5.QtGui import QPainter, QColor, QPixmap, QPainterPath
 from PyQt5.QtWidgets import QGraphicsPixmapItem, QGraphicsItem
-
 import constants
 
 
@@ -33,38 +32,46 @@ class GraphItem(QGraphicsPixmapItem):
 
         self.startPosition = None
         self.lines = []
-        self.edges = []  # Initialize the edges list
+        self.edges = []  # connected GraphEdge objects
 
-        self.parent = None  # Parent reference
-        self.children = []  # List to hold child nodes
+        self.parent = None
+        self.children = []
 
         self.label = label
         self.attributes = attributes or {}
-        self.image = image  # Base64 string for the image
-        self.image_scale = image_scale  # Boolean to indicate whether scaling is applied
+        self.image = image
+        self.image_scale = image_scale
+        self._cached_pixmap = None
         self.setPos(position)
 
         self.node_type = None
 
-        # If there's an image provided, handle decoding and scaling here
-        # if self.image:
-        #     self.set_image(self.image, self.image_scale)
+        # Enable movement, selection, and geometry notifications
+        self.setFlags(
+            QGraphicsItem.ItemIsSelectable |
+            QGraphicsItem.ItemIsMovable |
+            QGraphicsItem.ItemSendsGeometryChanges
+        )
 
-        self.setFlags(QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemSendsGeometryChanges)
+        self.setAcceptHoverEvents(True)
 
-    # def set_image(self, image_base64, scale):
-    #     image_data = QByteArray.fromBase64(image_base64.encode())
-    #     pixmap = QPixmap()
-    #     pixmap.loadFromData(image_data)
-    #     if scale:
-    #         pixmap = pixmap.scaled(32, 32, Qt.KeepAspectRatio)
-    #     self.setPixmap(pixmap)
+    # ---------------- Image Handling ----------------
 
-    def set_label(self, label):
-        """Public method to set the label."""
-        self._set_label(label)
-        # If necessary, you can trigger any update or repaint here
-        self.update()  # For example, to refresh the view after changing the label
+    def decode_base64_image(self, base64_string):
+        """Decode base64 to QPixmap and cache result."""
+        if self._cached_pixmap:
+            return self._cached_pixmap
+        image_data = base64.b64decode(base64_string)
+        pixmap = QPixmap()
+        pixmap.loadFromData(image_data)
+        self._cached_pixmap = pixmap
+        return pixmap
+
+    def clear_cache(self):
+        """Clear cached pixmap."""
+        self._cached_pixmap = None
+
+    # ---------------- Hover Events ----------------
 
     def hoverEnterEvent(self, event):
         self._is_hovered = True
@@ -76,166 +83,117 @@ class GraphItem(QGraphicsPixmapItem):
         self.update()
         super().hoverLeaveEvent(event)
 
+    # ---------------- Painting ----------------
+
     def paint(self, painter, option, widget=None):
         painter.save()
         painter.setRenderHint(QPainter.Antialiasing, True)
 
-        # Check if an image is provided and should be used
+        # Highlight if hovered or selected
+        if self._is_hovered or self.isSelected():
+            highlight_pen = QtGui.QPen(self.node_highlight_color, 2, Qt.DashLine)
+            painter.setPen(highlight_pen)
+        else:
+            painter.setPen(QtGui.QPen(self.node_background_color, 2))
+
+        # Draw node image
         if self.use_image and self.image:
             image_pixmap = self.decode_base64_image(self.image)
             if not image_pixmap.isNull():
                 if self.node_shape == constants.NodeShapes.Circle:
-                    path = QPainterPath()
+                    clip = QPainterPath()
                     rect = QRectF(0, 0, self.node_size, self.node_size)
-                    path.addEllipse(rect)
-                    painter.setClipPath(path)
+                    clip.addEllipse(rect)
+                    painter.setClipPath(clip)
 
                 if self.image_scale:
-                    scaled_pixmap = image_pixmap.scaled(self.node_size, self.node_size, Qt.KeepAspectRatio,
-                                                        Qt.SmoothTransformation)
+                    scaled_pixmap = image_pixmap.scaled(
+                        self.node_size, self.node_size,
+                        Qt.KeepAspectRatio, Qt.SmoothTransformation
+                    )
                     painter.drawPixmap(0, 0, scaled_pixmap)
                 else:
-                    image_rect = QRectF(0, 0, image_pixmap.width(), image_pixmap.height())
-                    painter.drawPixmap(image_rect, image_pixmap)
+                    painter.drawPixmap(0, 0, image_pixmap)
 
         elif self.show_icon:
             super().paint(painter, option, widget)
-
         else:
-            pen = QtGui.QPen(self.node_background_color)
-            pen.setWidth(2)
-            painter.setPen(pen)
             painter.setBrush(QtGui.QBrush(self.node_foreground_color))
-
-            shape_rect = QRect(0, 0, self.node_size, self.node_size)
-
+            rect = QRect(0, 0, self.node_size, self.node_size)
             if self.node_shape == constants.NodeShapes.Circle:
-                painter.drawEllipse(shape_rect)
+                painter.drawEllipse(rect)
             elif self.node_shape == constants.NodeShapes.Square:
-                painter.drawRect(shape_rect)
+                painter.drawRect(rect)
             else:
-                painter.drawEllipse(shape_rect)
+                painter.drawEllipse(rect)
 
-        # Draw label if show_label is True and label key is set
+        # Draw label
         if self.show_label and self.label:
             label_text = ''
-
-            # Access the nested Attributes list within self.attributes
             attributes_list = self.attributes.get('Attributes', [])
             if isinstance(attributes_list, list):
-                # Find the attribute in attributes_list matching self.label
-                label_text = next((attr['description'] for attr in attributes_list if attr.get('name') == self.label),
-                                  '')
+                label_text = next(
+                    (attr.get('description', '') for attr in attributes_list if attr.get('name') == self.label),
+                    ''
+                )
 
-            if label_text:  # Only draw if label_text is found
+            if label_text:
                 font = painter.font()
                 font.setPointSize(int(self.label_size))
                 painter.setFont(font)
-                painter.setPen(QtGui.QPen(Qt.black))  # Set text color to black
+                painter.setPen(QtGui.QPen(Qt.black))
 
-                # Determine label position
-                text_rect = painter.boundingRect(QRect(0, 0, self.node_size, self.node_size), Qt.AlignCenter,
-                                                 label_text)
+                text_rect = painter.boundingRect(QRect(0, 0, self.node_size, self.node_size), Qt.AlignCenter, label_text)
                 if self.label_position == constants.LabelPosition.Below:
-                    text_rect.moveTop(self.node_size + 5)  # Position below node
+                    text_rect.moveTop(self.node_size + 5)
                 elif self.label_position == constants.LabelPosition.Above:
-                    text_rect.moveBottom(-5)  # Position above node
-                else:  # Center position
+                    text_rect.moveBottom(-5)
+                else:
                     text_rect.moveCenter(QPoint(self.node_size / 2, self.node_size / 2))
-
                 painter.drawText(text_rect, Qt.AlignCenter, label_text)
 
         painter.restore()
 
-    def decode_base64_image(self, base64_string):
-        # Decode the base64 string into image bytes
-        image_data = base64.b64decode(base64_string)
-        pixmap = QPixmap()
-        # Load the image data into a QPixmap
-        pixmap.loadFromData(image_data)
-        return pixmap
-
-    # Identifier methods
-    def _get_identifier(self):
-        return self.identifier
-
-    def _set_identifier(self, _identifier):
-        self.identifier = _identifier
-
-    def _get_shape(self):
-        return self.node_shape
-
-    def _set_shape(self, _shape):
-        self.node_shape = _shape
-
-    def _get_use_image(self):
-        return self.use_image
-
-    def _set_use_image(self, _use_image):
-        self.use_image = _use_image
-
-    def _get_show_icon(self):
-        return self.show_icon
-
-    def _set_show_icon(self, _show_icon):
-        self.show_icon = _show_icon
-
-    def _get_label(self):
-        return self.label
-
-    def _set_label(self, _label):
-        self.label = _label
-
-    def _get_attributes(self):
-        return self.attributes
-
-    def _set_attributes(self, _attributes):
-        self.attributes = _attributes
-
-    def _get_pixmap(self):
-        return self.pixmap
-
-    def _set_pixmap(self, _pixmap):
-        self.pixmap = _pixmap
+    # ---------------- Scene Interaction ----------------
 
     def itemChange(self, change, value):
-        if change == QGraphicsItem.ItemPositionChange:
-            for line in self.lines:  # Assuming the node has a list of connected lines
-                line.updateLine()  # Just call updateLine without passing the node
+        """Ensure connected edges update when node moves."""
+        if change == QGraphicsItem.ItemPositionHasChanged:
+            for edge in getattr(self, "edges", []):
+                if hasattr(edge, "updatePosition"):
+                    edge.updatePosition()
         return super().itemChange(change, value)
 
-    def addLine(self, lineItem):
-        for existing in self.lines:
-            if existing.controlPoints() == lineItem.controlPoints():
-                # another line with the same control points already exists
-                return False
-        self.lines.append(lineItem)
-        return True
+    # ---------------- Edge Management ----------------
 
-    def removeLine(self, lineItem):
-        for existing in self.lines:
-            if existing.controlPoints() == lineItem.controlPoints():
-                self.scene().removeItem(existing)
-                self.lines.remove(existing)
-                return True
+    def addLine(self, lineItem):
+        if lineItem not in self.lines:
+            self.lines.append(lineItem)
+            if lineItem not in self.edges:
+                self.edges.append(lineItem)
+            return True
         return False
 
+    def removeLine(self, lineItem):
+        if lineItem in self.lines:
+            try:
+                self.scene().removeItem(lineItem)
+            except Exception:
+                pass
+            self.lines.remove(lineItem)
+            if lineItem in self.edges:
+                self.edges.remove(lineItem)
+            return True
+        return False
 
-    # Parent-child relationship methods
+    # ---------------- Parent-Child ----------------
+
     def has_parent(self):
-        """Check if the node has a parent."""
         return self.parent is not None
 
     def add_child(self, child):
-        """Add a child node and set the parent reference."""
-        child.parent = self  # Set the parent of the child
+        child.parent = self
         self.children.append(child)
 
-        # Debugging prints to verify relationship
-        # print(f"Child {child.identifier} added to parent {self.identifier}")
-        # print(f"Parent {self.identifier} now has children: {[c.identifier for c in self.children]}")
-        # print(f"Child {child.identifier} parent set to {child.parent.identifier}")
-
     def get_children(self):
-        """Return the list of child nodes."""
         return self.children
