@@ -90,6 +90,26 @@ class Ui_MainWindow(object):
 
         self.toolbarNorth.addWidget(self.buttonGraphFit)
 
+        self.buttonZoomIn = QToolButton(self.tabGraph)
+        self.buttonZoomIn.setObjectName(u"buttonZoomIn")
+        self.buttonZoomIn.setMinimumSize(QSize(30, 30))
+        self.buttonZoomIn.setMaximumSize(QSize(30, 30))
+        icon_path = os.path.join(base_dir, "images", "icon_zoom+.png")
+        icon_zoom_in = QIcon(icon_path)
+        self.buttonZoomIn.setIcon(icon_zoom_in)
+        self.buttonZoomIn.setIconSize(QSize(24, 24))
+        self.toolbarNorth.addWidget(self.buttonZoomIn)
+
+        self.buttonZoomOut = QToolButton(self.tabGraph)
+        self.buttonZoomOut.setObjectName(u"buttonZoomOut")
+        self.buttonZoomOut.setMinimumSize(QSize(30, 30))
+        self.buttonZoomOut.setMaximumSize(QSize(30, 30))
+        icon_path = os.path.join(base_dir, "images", "icon_zoom-.png")
+        icon_zoom_out = QIcon(icon_path)
+        self.buttonZoomOut.setIcon(icon_zoom_out)
+        self.buttonZoomOut.setIconSize(QSize(24, 24))
+        self.toolbarNorth.addWidget(self.buttonZoomOut)
+
         self.horizontalSpacer = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
 
         self.toolbarNorth.addItem(self.horizontalSpacer)
@@ -105,6 +125,11 @@ class Ui_MainWindow(object):
         self.graphView.setScene(self.graphScene)
 
         self.canvasGraph.addWidget(self.graphView)
+        
+
+        self.buttonZoomIn.clicked.connect(self.graphView.zoom_in)
+        self.buttonZoomOut.clicked.connect(self.graphView.zoom_out)
+        self.buttonGraphFit.clicked.connect(self.graphView.fit_view)
 
         # This is connected here because it needs the PlotWidget to be instantiated before it can be passed as a parameter
         # self.lineEditGraphFilter.textEdited.connect(self.graphView.eventFilterGraph)
